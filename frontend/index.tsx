@@ -63,6 +63,26 @@ async function startTracking(): Promise<void> {
 
   await logTracking({ payload: `Tracking ${games.length} installed game(s) for updates` });
 
+  // На старте сравниваем сохранённые buildId с текущими — уведомляем если обновление пришло пока Steam был закрыт
+  async function checkOnStartup() {
+    const updates: string[] = [];
+    for (const game of games) {
+      const key = String(game.id);
+      const buildId = await fetchBuildId(game.id);
+      if (!buildId) continue;
+      const prev = lastBuilds[key];
+      if (prev && prev !== buildId) {
+        updates.push(game.name);
+        logTracking({ payload: `Missed update detected for ${game.name} (build: ${buildId})` });
+      }
+      lastBuilds[key] = buildId;
+    }
+    saveVersions({ payload: JSON.stringify(lastBuilds) });
+    if (updates.length > 0) {
+      showNotification(updates.join(", "));
+    }
+  }
+
   async function pollBuilds() {
     for (const game of games) {
       const key = String(game.id);
@@ -81,7 +101,7 @@ async function startTracking(): Promise<void> {
     }
   }
 
-  await pollBuilds();
+  await checkOnStartup();
   setInterval(pollBuilds, 2 * 60 * 1000);
 }
 
