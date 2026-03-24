@@ -78,7 +78,6 @@ async function startTracking(): Promise<void> {
 
   await logTracking({ payload: `Tracking ${games.length} installed game(s) for updates` });
 
-  // �� ������ ���������� ����������� buildId � �������� � ���������� ���� ���������� ������ ���� Steam ��� ������
   async function checkOnStartup() {
     const updates: { name: string; id: number }[] = [];
     for (const game of games) {
