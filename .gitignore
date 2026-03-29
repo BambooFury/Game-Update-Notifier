@@ -1,0 +1,7 @@
+node_modules/
+.millennium/
+pnpm-lock.yaml
+versions.json
+settings.json
+.vscode/
+.zip
