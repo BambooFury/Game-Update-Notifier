@@ -3,6 +3,8 @@ local millennium = require("millennium")
 
 local PLUGIN_DIR = debug.getinfo(1, "S").source:match("^@(.+)\\backend\\") or "."
 local VERSIONS_FILE = PLUGIN_DIR .. "\\versions.json"
+local IGNORED_FILE = PLUGIN_DIR .. "\\ignored.json"
+local SETTINGS_FILE = PLUGIN_DIR .. "\\settings.json"
 
 local function read_file(path)
     local f = io.open(path, "r")
@@ -18,6 +20,28 @@ end
 function load_versions_ipc(data)
     local content = read_file(VERSIONS_FILE)
     return content or "{}"
+end
+function load_ignored_ipc(data)
+    local content = read_file(IGNORED_FILE)
+    return content or "[]"
+end
+function save_ignored_ipc(data)
+    local payload = data
+    if type(data) == "table" then payload = data.payload end
+    if not payload then return 0 end
+    write_file(IGNORED_FILE, payload)
+    return 1
+end
+function load_settings_ipc(data)
+    local content = read_file(SETTINGS_FILE)
+    return content or "{}"
+end
+function save_settings_ipc(data)
+    local payload = data
+    if type(data) == "table" then payload = data.payload end
+    if not payload then return 0 end
+    write_file(SETTINGS_FILE, payload)
+    return 1
 end
 function log_tracking(data)
     local payload = data

@@ -3,5 +3,6 @@ node_modules/
 pnpm-lock.yaml
 versions.json
 settings.json
+ignored.json
 .vscode/
-.zip
+*.zip
