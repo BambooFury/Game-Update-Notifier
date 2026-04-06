@@ -11,6 +11,7 @@ const saveSettings = callable<[{ payload: string }], number>("save_settings_ipc"
 
 let ignoredIds: Set<number> = new Set();
 let trackUninstalled: boolean = false;
+let pollIntervalMinutes: number = 3;
 
 function getGameIconUrl(appId: number): string {
   try {
@@ -100,6 +101,7 @@ const SettingsPanel = () => {
   const [search, setSearch] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [trackUninstalledSetting, setTrackUninstalledSetting] = useState(false);
+  const [intervalSetting, setIntervalSetting] = useState(3);
 
   const refreshGames = (uninstalled: boolean) => {
     if (uninstalled) {
@@ -127,6 +129,9 @@ const SettingsPanel = () => {
           uninstalled = settings.trackUninstalled === true;
           setTrackUninstalledSetting(uninstalled);
           trackUninstalled = uninstalled;
+          const interval = Number(settings.pollInterval) || 3;
+          setIntervalSetting(interval);
+          pollIntervalMinutes = interval;
         } catch {}
         refreshGames(uninstalled);
         setLoaded(true);
@@ -152,7 +157,13 @@ const SettingsPanel = () => {
     setTrackUninstalledSetting(val);
     trackUninstalled = val;
     refreshGames(val);
-    saveSettings({ payload: JSON.stringify({ trackUninstalled: val }) });
+    saveSettings({ payload: JSON.stringify({ trackUninstalled: val, pollInterval: intervalSetting }) });
+  };
+
+  const changeInterval = (val: number) => {
+    setIntervalSetting(val);
+    pollIntervalMinutes = val;
+    saveSettings({ payload: JSON.stringify({ trackUninstalled: trackUninstalledSetting, pollInterval: val }) });
   };
 
   const filtered = games.filter((g) =>
@@ -173,6 +184,41 @@ const SettingsPanel = () => {
         value: trackUninstalledSetting,
         onChange: toggleTrackUninstalled,
       })
+    ),
+    React.createElement(Field as any, {
+      label: "Check interval",
+      description: "How often to poll for game updates",
+      bottomSeparator: "standard",
+    },
+      React.createElement("select", {
+        value: intervalSetting,
+        onChange: (e: any) => changeInterval(Number(e.target.value)),
+        style: {
+          background: "#16202d", border: "1px solid #3d4450",
+          color: "#c6d4df", borderRadius: "4px",
+          padding: "5px 28px 5px 10px", fontSize: "13px",
+          cursor: "pointer", outline: "none",
+          appearance: "none" as any,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238b929a'/%3E%3C/svg%3E")`,
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "right 8px center",
+          minWidth: "100px",
+        },
+      },
+        [
+          { value: 1,  label: "1 min"  },
+          { value: 3,  label: "3 min"  },
+          { value: 5,  label: "5 min"  },
+          { value: 15, label: "15 min" },
+          { value: 30, label: "30 min" },
+          { value: 60, label: "1 hour" },
+        ].map(({ value, label }) =>
+          React.createElement("option", {
+            key: value, value,
+            style: { background: "#16202d", color: "#c6d4df" },
+          }, label)
+        )
+      )
     ),
     React.createElement("div", { style: { padding: "8px 16px" } },
       React.createElement("input", {
@@ -322,11 +368,23 @@ async function startTracking(): Promise<void> {
     const settingsRaw = await loadSettings();
     const settings = JSON.parse(settingsRaw || "{}");
     trackUninstalled = settings.trackUninstalled === true;
+    pollIntervalMinutes = Number(settings.pollInterval) || 3;
   } catch {}
 
   await checkOnStartup();
-  logTracking({ payload: `Poll interval started (every 1 min)` });
-  setInterval(pollBuilds, 60 * 1000);
+  logTracking({ payload: `Poll interval started (every ${pollIntervalMinutes} min)` });
+
+  let currentInterval = pollIntervalMinutes;
+  let intervalHandle = setInterval(pollBuilds, currentInterval * 60 * 1000);
+
+  setInterval(() => {
+    if (pollIntervalMinutes !== currentInterval) {
+      clearInterval(intervalHandle);
+      currentInterval = pollIntervalMinutes;
+      intervalHandle = setInterval(pollBuilds, currentInterval * 60 * 1000);
+      logTracking({ payload: `Poll interval changed to ${currentInterval} min` });
+    }
+  }, 60 * 1000);
 }
 
 export default definePlugin(() => {
